@@ -1,0 +1,3 @@
+mutation passwordmodif($oldPassword: String!, $newPassword: String!) {
+  passwordmodif(oldPassword: $oldPassword, newPassword: $newPassword)
+}

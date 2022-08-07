@@ -6,11 +6,16 @@ import {
   InputType,
   Int,
   Mutation,
+  ObjectType,
   Query,
   Resolver,
+  UseMiddleware,
 } from "type-graphql";
 import { LocalContext } from "src/types";
 import { User } from "../entities/User";
+import { isAuth } from "../middleware/isAuth";
+import { AppdataSource } from "../data-source";
+import { isEnabled } from "../middleware/isEnabled";
 
 @InputType()
 class PostInput {
@@ -20,11 +25,79 @@ class PostInput {
   body: string;
 }
 
+@ObjectType()
+class PaginatedPosts {
+  @Field(() => [Post])
+  posts: Post[];
+
+  @Field()
+  hasMore: boolean;
+}
+
 @Resolver()
 export class PostResolver {
-  @Query(() => [Post])
-  posts() {
-    return Post.find();
+  // @Query(() => [Post])
+  // async posts(
+  //   @Arg("limit", () => Int) limit: number,
+  //   @Arg("cursor", () => String, { nullable: true }) cursor: string | null
+  // ) {
+  //   const maxLimit = Math.min(50, limit);
+  //   const qb = await AppdataSource.getRepository(Post)
+  //     .createQueryBuilder("p")
+  //     // .where("p.id = :id", { id: 1 })
+  //     .take(maxLimit)
+  //     .orderBy('"createdAt"', "DESC");
+
+  //   if (cursor) {
+  //     qb.where("p.createdAt < :cursor", { cursor });
+  //   }
+
+  //   return qb.getMany();
+  // }
+
+  @Query(() => PaginatedPosts)
+  async posts(
+    @Arg("limit", () => Int) limit: number,
+    @Arg("cursor", () => Date, { nullable: true }) cursor: Date | null,
+    @Arg("userId", () => Int, { nullable: true }) userId: number | null
+  ): Promise<PaginatedPosts> {
+    const maxLimit = Math.min(50, limit);
+    const limitPlusOne = maxLimit + 1;
+
+    // const postss = await AppdataSource.query(`select p.* from post p ${cursor ? 'where p."createdAt" < $2' : ''} ${userId ? ''}`)
+
+    const qb = await AppdataSource.getRepository(Post).createQueryBuilder("p");
+    // .where("p.id = :id", { id: 1 })
+    if (userId) {
+      qb.leftJoinAndSelect(`p.user`, "user");
+    }
+    if (userId) qb.where('p."userId" = :userId', { userId });
+    if (cursor) {
+      qb.andWhere('p."createdAt" < :cursor', { cursor });
+    }
+
+    qb.orderBy('p."createdAt"', "DESC");
+
+    qb.limit(limitPlusOne);
+    const posts = await qb.printSql().getMany();
+
+    // const posts = await AppdataSource.getRepository(Post).query(
+    //   `select p.* from post p INNER JOIN "user" us ON p."userId" = "us"."id" ${
+    //     userId ? ` where p."userId" = $2` : ""
+    //   } ${
+    //     cursor
+    //       ? userId
+    //         ? `AND p."createdAt" < $3`
+    //         : `where p."createdAt" < $3`
+    //       : ""
+    //   } order by p."createdAt" DESC limit $1 `,
+    //   [limitPlusOne, userId, cursor]
+    // );
+
+    return {
+      posts: posts.slice(0, maxLimit),
+      hasMore: posts.length === limitPlusOne,
+    };
   }
 
   @Query(() => Post, { nullable: true })
@@ -35,6 +108,7 @@ export class PostResolver {
   }
 
   @Mutation(() => Post, { nullable: true })
+  @UseMiddleware(isAuth, isEnabled)
   async createPost(
     @Arg("options") options: PostInput,
     @Ctx() { req }: LocalContext
@@ -45,21 +119,43 @@ export class PostResolver {
   }
 
   @Mutation(() => Post, { nullable: true })
-  async updatePost(@Arg("id") id: number, @Arg("title") title: string) {
+  @UseMiddleware(isAuth, isEnabled)
+  async updatePost(
+    @Arg("id") id: number,
+    @Arg("title") title: string,
+    @Arg("body") body: string,
+    @Ctx() { req }: LocalContext
+  ) {
     const post = await Post.findOneBy({ id });
     if (!post) {
       return null;
     }
-    if (typeof title !== "undefined") {
-      await Post.update({ id }, { title });
+    const creator = await post.user;
+    if (creator.id !== req.session.userId) {
+      return null;
     }
-    return post;
+    await Post.update({ id: post.id }, { title, body });
+    const result = await Post.findOneBy({ id });
+    // const result = await Post.createQueryBuilder()
+    //   .update({
+    //     title,
+    //     body,
+    //   })
+    //   .where({ id: post.id })
+    //   .returning("*")
+    //   .execute();
+    // console.log(result);
+    return result;
   }
 
   @Mutation(() => Boolean)
+  @UseMiddleware(isAuth, isEnabled)
   async deletePost(@Arg("id") id: number) {
-    await Post.delete({ id });
-
-    return true;
+    const post = await Post.findOneBy({ id });
+    if (post) {
+      await Post.delete({ id });
+      return true;
+    }
+    return false;
   }
 }

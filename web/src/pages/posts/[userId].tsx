@@ -1,27 +1,32 @@
-import { useMeQuery, usePostsQuery } from "../generated/graphql";
-import { Alert, AlertIcon, Button, Stack } from "@chakra-ui/react";
-import { Layout } from "../components/Layout";
-import ContentLayout from "../components/ContentLayout";
-import PostWrapper from "../components/PostWrapper";
+import { Stack, Button, Alert, AlertIcon } from "@chakra-ui/react";
+import { useRouter } from "next/router";
 import { useState } from "react";
-import { isServer } from "../utils/isServer";
-import withApollo from "../utils/withApollo";
+import ContentLayout from "../../components/ContentLayout";
+import { Layout } from "../../components/Layout";
+import PostWrapper from "../../components/PostWrapper";
+import { usePostsQuery } from "../../generated/graphql";
+import withApollo from "../../utils/withApollo";
 
-const Index = () => {
+const UserPosts = () => {
+  const router = useRouter();
   type Vars = {
     limit: number;
     cursor: Date | null;
   };
-  const [vars, setVariables] = useState<Vars>({
+  const userId =
+    typeof router.query.userId === "string"
+      ? parseInt(router.query.userId)
+      : -1;
+  const [vars, setVars] = useState<Vars>({
     limit: 10,
     cursor: null,
   });
-  const { data, loading, fetchMore } = usePostsQuery({ variables: vars });
-  const MeData = useMeQuery({
-    skip: isServer(),
+  const { data, loading, fetchMore } = usePostsQuery({
+    variables: { ...vars, userId },
   });
+
   const profile = {
-    username: MeData.data?.me?.username,
+    username: data?.posts.posts[0].user.username,
     title: "Developer",
     description:
       "Vestibulum ante ipsum primis in faucibus orci luctus et ultrices posuere cubilia Curae; Donec pharetra, magna vestibulum aliquet ultrices, erat tortor sollicitudin mi, sit amet lobortis sapien sapien non mi.",
@@ -30,7 +35,7 @@ const Index = () => {
   return (
     <>
       <Layout>
-        <ContentLayout profile={false} profileProps={profile}>
+        <ContentLayout profile={true} profileProps={profile}>
           {loading ? (
             <div>loading...</div>
           ) : (
@@ -46,20 +51,12 @@ const Index = () => {
                   my={2}
                   mx={"auto"}
                   onClick={() => {
-                    console.log(
-                      new Date(
-                        Date.parse(
-                          data?.posts.posts[data?.posts.posts.length - 1]
-                            .createdAt
-                        )
-                      )
-                    );
                     fetchMore({
                       variables: {
                         limit: vars.limit,
                         cursor: new Date(
                           Date.parse(
-                            data.posts.posts[data.posts.posts.length - 1]
+                            data?.posts.posts[data?.posts.posts.length - 1]
                               .createdAt
                           )
                         ),
@@ -84,4 +81,4 @@ const Index = () => {
   );
 };
 
-export default withApollo({ ssr: true })(Index);
+export default withApollo({ ssr: true })(UserPosts);

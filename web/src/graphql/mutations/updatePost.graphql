@@ -1,0 +1,11 @@
+mutation updatePost($id: Float!, $title: String!, $body: String!) {
+  updatePost(id: $id, title: $title, body: $body) {
+    id
+    title
+    body
+    user {
+      id
+      username
+    }
+  }
+}

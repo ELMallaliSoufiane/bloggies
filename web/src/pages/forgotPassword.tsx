@@ -1,22 +1,22 @@
-import { Alert, AlertIcon, Box, Button } from "@chakra-ui/react";
+import { Alert, AlertIcon, Button } from "@chakra-ui/react";
 import { Formik, Form } from "formik";
-import { withUrqlClient } from "next-urql";
-import router from "next/router";
 import { useState } from "react";
 import { InputField } from "../components/InputField";
 import Wrapper from "../components/Wrapper";
 import { useForgotPasswordMutation } from "../generated/graphql";
-import { urqlClient } from "../utils/urqlClient";
+import withApollo from "../utils/withApollo";
 
 const forgotPassword = () => {
-  const [, forgotPassword] = useForgotPasswordMutation();
+  const [forgotPassword] = useForgotPasswordMutation();
   const [message, setMessage] = useState("");
   return (
     <Wrapper>
       <Formik
         initialValues={{ email: "" }}
         onSubmit={async (values, { setErrors }) => {
-          const response = await forgotPassword({ email: values.email });
+          const response = await forgotPassword({
+            variables: { email: values.email },
+          });
           if (response.data?.forgotPassword) {
             setMessage("an email was sent containing the reset password link");
           }
@@ -47,4 +47,4 @@ const forgotPassword = () => {
   );
 };
 
-export default withUrqlClient(urqlClient)(forgotPassword);
+export default withApollo({ ssr: false })(forgotPassword);

@@ -1,10 +1,10 @@
-import { Box } from "@chakra-ui/react";
+import { Box, Container } from "@chakra-ui/react";
 
 const Wrapper = ({ children }: any) => {
   return (
-    <Box mt={8} mx="auto" maxW="600px">
+    <Container p={0} mt={8}>
       {children}
-    </Box>
+    </Container>
   );
 };
 

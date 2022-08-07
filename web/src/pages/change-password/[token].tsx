@@ -1,17 +1,18 @@
 import { Alert, AlertIcon, Button } from "@chakra-ui/react";
 import { Formik, Form } from "formik";
 import { NextPage } from "next";
-import { withUrqlClient } from "next-urql";
 import { Link } from "@chakra-ui/react";
 import { useState } from "react";
 import { InputField } from "../../components/InputField";
 import Wrapper from "../../components/Wrapper";
 import { useChangePasswordMutation } from "../../generated/graphql";
-import { urqlClient } from "../../utils/urqlClient";
 import NextLink from "next/link";
+import withApollo from "../../utils/withApollo";
+import { useRouter } from "next/router";
 
-const ChangePassword: NextPage<{ token: string }> = ({ token }) => {
-  const [, changePassword] = useChangePasswordMutation();
+const ChangePassword: NextPage = () => {
+  const router = useRouter();
+  const [changePassword] = useChangePasswordMutation();
   const [message, setMessage] = useState("");
   return (
     <Wrapper>
@@ -19,8 +20,13 @@ const ChangePassword: NextPage<{ token: string }> = ({ token }) => {
         initialValues={{ newPassword: "" }}
         onSubmit={async (values, { setErrors }) => {
           const response = await changePassword({
-            newPassword: values.newPassword,
-            token,
+            variables: {
+              newPassword: values.newPassword,
+              token:
+                typeof router.query.token === "string"
+                  ? router.query.token
+                  : "",
+            },
           });
           console.log(response);
           if (response.data?.changePassword) {
@@ -57,9 +63,4 @@ const ChangePassword: NextPage<{ token: string }> = ({ token }) => {
   );
 };
 
-ChangePassword.getInitialProps = ({ query }) => {
-  return {
-    token: query.token as string,
-  };
-};
-export default withUrqlClient(urqlClient)(ChangePassword);
+export default withApollo({ ssr: false })(ChangePassword);

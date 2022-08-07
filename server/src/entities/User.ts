@@ -39,4 +39,8 @@ export class User extends BaseEntity {
   @Field(() => [Post], { nullable: true })
   @OneToMany(() => Post, (post) => post.user, { lazy: true })
   posts: Post[];
+
+  @Field()
+  @Column("boolean", { default: true })
+  active: boolean = true;
 }

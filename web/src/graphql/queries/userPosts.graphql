@@ -1,0 +1,15 @@
+query userPosts($limit: Int!, $cursor: DateTime, $userId: Int) {
+  userPosts: posts(limit: $limit, cursor: $cursor, userId: $userId) {
+    userPosts: posts {
+      id
+      title
+      body
+      createdAt
+      user {
+        id
+        username
+      }
+    }
+    hasMore
+  }
+}
